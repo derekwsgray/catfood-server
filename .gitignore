@@ -1,0 +1,11 @@
+# IntelliJ IDEA
+.idea/
+
+# Node.js
+node_modules/
+npm-debug.log
+/yarn-error.log
+
+logs/
+mochawesome-report/
+\.vscode/
