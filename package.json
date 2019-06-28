@@ -6,7 +6,9 @@
     "start": "node ./bin/www"
   },
   "dependencies": {
+    "@darkeyedevelopers/natural-cron.js": "^1.0.2",
     "cookie-parser": "~1.4.4",
+    "cron-parser": "^2.12.0",
     "debug": "~2.6.9",
     "express": "~4.16.1",
     "hbs": "~4.0.4",
