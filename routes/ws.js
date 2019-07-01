@@ -138,14 +138,18 @@ class WebsocketHandler {
             await promiseTimeout(duration);
             this.motor.servoWrite(PULSE_WIDTH_CLOSED);
 
+            const time = new Date().toLocaleString();
+
             if (!silent) {
                 socket.emit('operation-status', {
                     operation: 'feed-now',
                     status: 'Feeding Done!',
-                    timestamp: new Date().toLocaleString(),
+                    timestamp: time,
                     complete: true
                 });
             }
+
+            logger.info('Executing a feeding at ' + time);
         } catch(e) {
             socket.emit('operation-status', {
                 operation: 'feed-now',
