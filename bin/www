@@ -7,18 +7,53 @@
 const app = require('../app');
 const debug = require('debug')('catfood-server:server');
 const http = require('http');
+//const fs = require('fs');
+const yargs = require('yargs');
+const logger = console;
+
+const defaultSettings = {
+    port: 3042,
+    certKey: '/server/www/keys/catfood-key.pem',
+    certChain: '/server/www/keys/chain.pem',
+    imageDir: './public/'
+};
+
+const catfoodSettings = yargs.env('CATFOOD')
+    .option('p', {
+        alias: 'port',
+        describe: 'Sets the port used by this server.',
+        default: defaultSettings.port
+    })
+    .option('k', {
+        alias: 'cert-key',
+        describe: 'Path to certification key.',
+        default: defaultSettings.certKey
+    })
+    .option('c', {
+        alias: 'cert-chain',
+        describe: 'Path to certification chain.',
+        default: defaultSettings.certChain
+    })
+    .argv;
 
 /**
  * Get port from environment and store in Express.
  */
 
-const port = normalizePort(process.env.PORT || '3000');
+const port = normalizePort(catfoodSettings.port);
 app.set('port', port);
+
+//TODO:
+// const certOptions = {
+//     key: fs.readFileSync(catfoodSettings.certKey),
+//     cert: fs.readFileSync(catfoodSettings.certChain)
+// };
 
 /**
  * Create HTTP server.
  */
 
+//const server = https.createServer(certOptions, app);
 const server = http.createServer(app);
 
 /**
@@ -35,11 +70,28 @@ server.on('listening', onListening);
  */
 const socketIO = require('socket.io').listen(server);
 
-//server.listen(8080);
 // WARNING: app.listen(80) will NOT work here!
 const ws = require('../routes/ws');
-const Gpio = require('pigpio-mock').Gpio;
-ws.init(Gpio, socketIO);
+
+
+// Development, off Pi
+let Gpio = require('pigpio-mock').Gpio;
+const StillCameraMock = require('../lib/mock-pi-camera-connect');
+let camera = new StillCameraMock();
+
+// Production, on Pi
+try {
+    Gpio = require('pigpio').Gpio;
+    const { StillCamera } = require('pi-camera-connect');
+    camera = new StillCamera({
+        width: 320,
+        height: 240
+    });
+} catch (e) {
+    logger.warn('pigpio module could not be loaded, probably not on a RPi, falling back to mocks.');
+}
+
+ws.init(Gpio, camera, socketIO);
 
 server.listen(port);
 

@@ -1,10 +1,12 @@
 const getCronString = require('@darkeyedevelopers/natural-cron.js');
 const schedule = require('node-schedule');
+const fs = require('fs');
 const logger = console;
 
 const PULSE_WIDTH_CLOSED = 800;
 const PULSE_WIDTH_OPEN = 2050;
 const DURATION_OPEN = 1000;
+const PHOTO_FILENAME = 'still.jpg';
 
 function promiseTimeout(time) {
     return new Promise(function(resolve, reject) {
@@ -20,11 +22,17 @@ class WebsocketHandler {
         this.motor = null;
         this.nextJobId = 1;
         this.jobMap = new Map();
+        this.latestStillShot = {
+            dataUrl: null,
+            timestamp: null
+        };
     }
 
-    init(GpioConstructor, socketIO) {
+    init(GpioConstructor, camera, socketIO) {
 
         this.motor = new GpioConstructor(10, { mode: GpioConstructor.OUTPUT });
+        this.camera = camera;
+
         //this.motor.servoWrite(PULSE_WIDTH_CLOSED);
 
         socketIO.on('connection', (socket) => {
@@ -74,6 +82,9 @@ class WebsocketHandler {
         } else if (data.operation === 'delete-job') {
             this.deleteJob(socket, data.jobId);
 
+        } else if (data.operation === 'take-photo') {
+            this.takePhoto(socket);
+
         } else {
             socket.emit('operation-status', {
                 operation: data.operation,
@@ -95,6 +106,8 @@ class WebsocketHandler {
                 });
             }
         } catch(e) {
+            logger.error(e);
+
             socket.emit('operation-status', {
                 operation: 'door-close',
                 status: 'Door-closing Problem!: ' + e,
@@ -117,6 +130,8 @@ class WebsocketHandler {
                 });
             }
         } catch(e) {
+            logger.error(e);
+
             socket.emit('operation-status', {
                 operation: 'door-open',
                 status: 'Door-opening Problem!: ' + e,
@@ -150,7 +165,12 @@ class WebsocketHandler {
             }
 
             logger.info('Executing a feeding at ' + time);
+
+            await promiseTimeout(2000);
+            await this.takePhoto(socket);
         } catch(e) {
+            logger.error(e);
+
             socket.emit('operation-status', {
                 operation: 'feed-now',
                 status: 'Feeding Problem!: ' + e,
@@ -216,6 +236,8 @@ class WebsocketHandler {
             this.sendJobInfo(socket);
 
         } catch(e) {
+            logger.error(e);
+
             socket.emit('operation-status', {
                 operation: 'add-job',
                 status: 'Scheduling Problem!: ' + e,
@@ -247,9 +269,63 @@ class WebsocketHandler {
             this.sendJobInfo(socket);
 
         } catch(e) {
+            logger.error(e);
+
             socket.emit('operation-status', {
                 operation: 'delete-job',
                 status: 'Job Deletion Problem!: ' + e,
+                timestamp: new Date().toLocaleString(),
+                error: true
+            });
+        }
+    }
+
+    sendLatestStillShot(socket) {
+        const timestamp = new Date().toLocaleString();
+
+        socket.emit('operation-status', {
+            operation: 'latest-photo',
+            status: 'Supplying latest photo.',
+            latestPhoto: this.latestStillShot,
+            timestamp: timestamp,
+            complete: true
+        });
+    }
+
+    async takePhoto(socket) {
+        socket.emit('operation-status', {
+            operation: 'take-photo',
+            status: 'Taking photo...',
+            timestamp: new Date().toLocaleString()
+        });
+
+        try {
+            const image = await this.camera.takeImage();
+            const filename = PHOTO_FILENAME;
+            fs.writeFileSync(filename, image);
+
+            const base64Image = fs.readFileSync(PHOTO_FILENAME, { encoding: 'base64' });
+            const dataUrl = 'data:image/jpeg;base64,' + base64Image;
+
+            const timestamp = new Date().toLocaleString();
+            this.latestStillShot = { dataUrl, timestamp };
+
+            socket.emit('operation-status', {
+                operation: 'take-photo',
+                status: 'Photo captured!',
+                timestamp: timestamp,
+                complete: true
+            });
+
+            this.sendLatestStillShot(socket);
+
+            logger.info('Took a Photo at ' + timestamp);
+        } catch(e) {
+            logger.error(e);
+
+            socket.emit('operation-status', {
+                operation: 'take-photo',
+                status: 'Photo problem!: ' + e,
                 timestamp: new Date().toLocaleString(),
                 error: true
             });
