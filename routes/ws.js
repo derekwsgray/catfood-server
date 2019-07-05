@@ -48,6 +48,7 @@ class WebsocketHandler {
             }, 5000);
 
             this.sendJobInfo(socket);
+            this.sendLatestStillShot(socket);
         });
     }
 
