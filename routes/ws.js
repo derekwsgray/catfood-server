@@ -6,7 +6,8 @@ const logger = console;
 const PULSE_WIDTH_CLOSED = 800;
 const PULSE_WIDTH_OPEN = 2050;
 const DURATION_OPEN = 1000;
-const PHOTO_FILENAME = 'still.jpg';
+const PHOTO_FILENAME = 'still';
+const PHOTO_FILE_EXT = '.jpg';
 
 function promiseTimeout(time) {
     return new Promise(function(resolve, reject) {
@@ -282,18 +283,17 @@ class WebsocketHandler {
     }
 
     sendLatestStillShot(socket) {
-        const timestamp = new Date().toLocaleString();
-
         socket.emit('operation-status', {
             operation: 'latest-photo',
             status: 'Supplying latest photo.',
             latestPhoto: this.latestStillShot,
-            timestamp: timestamp,
+            timestamp: this.latestStillShot.timestamp,
             complete: true
         });
     }
 
     async takePhoto(socket) {
+
         socket.emit('operation-status', {
             operation: 'take-photo',
             status: 'Taking photo...',
@@ -302,13 +302,15 @@ class WebsocketHandler {
 
         try {
             const image = await this.camera.takeImage();
-            const filename = PHOTO_FILENAME;
-            fs.writeFileSync(filename, image);
-
-            const base64Image = fs.readFileSync(PHOTO_FILENAME, { encoding: 'base64' });
-            const dataUrl = 'data:image/jpeg;base64,' + base64Image;
 
             const timestamp = new Date().toLocaleString();
+            const filename = `${PHOTO_FILENAME}-${timestamp}${PHOTO_FILE_EXT}`;
+            fs.writeFileSync(filename, image);
+
+            const base64Image = fs.readFileSync(filename, { encoding: 'base64' });
+            const dataUrl = 'data:image/jpeg;base64,' + base64Image;
+
+
             this.latestStillShot = { dataUrl, timestamp };
 
             socket.emit('operation-status', {
