@@ -303,14 +303,21 @@ class WebsocketHandler {
         try {
             const image = await this.camera.takeImage();
 
-            const timestamp = new Date().toLocaleString();
-            const filename = `${PHOTO_FILENAME}-${timestamp}${PHOTO_FILE_EXT}`;
+            const dt = new Date();
+            let date = ("0" + dt.getDate()).slice(-2);
+            let month = ("0" + (dt.getMonth() + 1)).slice(-2);
+            let year = dt.getFullYear();
+            let hours = dt.getHours();
+            let minutes = dt.getMinutes();
+            let seconds = dt.getSeconds();
+
+            const filename = `${PHOTO_FILENAME}-${year}${month}${date}-${hours}${minutes}${seconds}${PHOTO_FILE_EXT}`;
             fs.writeFileSync(filename, image);
 
             const base64Image = fs.readFileSync(filename, { encoding: 'base64' });
             const dataUrl = 'data:image/jpeg;base64,' + base64Image;
 
-
+            const timestamp = dt.toLocaleString();
             this.latestStillShot = { dataUrl, timestamp };
 
             socket.emit('operation-status', {
