@@ -10,4 +10,8 @@ logs/
 mochawesome-report/
 \.vscode/
 
-still.jpg
+still*.jpg
+/public/assets/
+/public/fonts/
+/public/index.html
+/public/robots.txt
